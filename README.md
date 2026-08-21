@@ -104,20 +104,75 @@ and any `*.github.io` host — a URL you will want to leave.
 
 ## TTS
 
-| provider | how you pick a voice |
+Four providers. Two are specific, two are generic — and the generic pair is how you use a
+local model without anyone writing an adapter for it.
+
+| provider | for |
 |---|---|
-| `elevenlabs` | `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`, an id from your ElevenLabs account. Clone **only a voice you have the rights to.** |
-| `local` | No key, no account, no voice id. [Piper](https://github.com/rhasspy/piper) takes `PIPER_MODEL`, a path to a `.onnx` voice file you downloaded; macOS `say` takes `SAY_VOICE`, the name of a voice already on the machine (`say -v "?"` lists them). Nothing here is a secret or tied to an account. |
+| `elevenlabs` | The hosted one. `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`. Clone **only a voice you have the rights to.** |
+| `local` | Zero setup. [Piper](https://github.com/rhasspy/piper) via `PIPER_MODEL`, else macOS `say` via `SAY_VOICE` (`say -v "?"` lists them). |
+| `command` | **Any local model with a CLI.** |
+| `openai` | **Any OpenAI-compatible `/v1/audio/speech` server**, which is what most local TTS servers expose. |
 
-The local provider sounds like a local provider. It exists so you can get a real feed live and
-hear the shape of the show before deciding whether the good voice is worth paying for.
+There is no "voice id" for a local model. Piper takes a path to a `.onnx` file you
+downloaded; `say` takes the name of a voice on the machine; Kokoro takes a voice name baked
+into the model. None of it is a secret or tied to an account.
 
-Default model is `eleven_multilingual_v2`, deliberately. `eleven_v3` sounds better in
-isolation but rejects `previous_text`/`next_text`, and this pipeline synthesises one chunk
-per paragraph — so under v3 every chunk starts cold and a cloned voice audibly drifts in
-timbre across an episode. Continuity beats per-chunk polish once you are chunking.
+### Using any local model — `command`
 
----
+```json
+"tts": {
+  "provider": "command",
+  "command": "kokoro-tts {{text_file}} {{out}} --voice af_heart",
+  "outputFormat": "wav"
+}
+```
+
+`{{text_file}}` is a temp file holding one paragraph, `{{out}}` is where your tool must write
+audio, `{{text}}` inlines the text shell-quoted instead. Use none of them and the text
+arrives on stdin. Whatever format your tool writes gets converted to mp3 here. The command
+runs through `sh -c`, so pipes work.
+
+That is the whole integration. No adapter, no PR, no wait for this repo to catch up with a
+model list that turns over every few months.
+
+### Using a local server — `openai`
+
+```json
+"tts": {
+  "provider": "openai",
+  "baseUrl": "http://localhost:8880/v1",
+  "model": "kokoro",
+  "voice": "af_heart"
+}
+```
+
+Works against Kokoro-FastAPI, LocalAI, Speaches, or OpenAI itself. Set `TTS_API_KEY` only if
+your endpoint wants one; a local server usually does not.
+
+### Which local model
+
+**Check the license before you ship a commercial show** — this is where people get caught,
+not on quality. As widely reported (verify on the model card yourself, licenses change):
+
+| model | license | notes |
+|---|---|---|
+| **Kokoro-82M** | Apache 2.0 | The usual default. 82M params, runs on a laptop CPU, many voices. |
+| **Piper** | MIT | Fast, small, lots of prebuilt voices. Has a first-class provider here. |
+| **Chatterbox** | MIT | Does voice cloning, permissively licensed. Wants a GPU. |
+| **StyleTTS 2** | MIT | Strong quality, more setup. |
+| **XTTS v2** | ⚠️ CPML — **non-commercial** | Coqui shut down in 2024. Good at cloning, and the most common licensing mistake in this space. |
+| **F5-TTS** | ⚠️ CC-BY-NC — **non-commercial** | Same trap. |
+
+Not TTS at all, despite showing up in "local speech models" lists: **Whisper** and **NVIDIA
+Parakeet** are speech-*to*-text.
+
+### Why the ElevenLabs default is `eleven_multilingual_v2`
+
+`eleven_v3` sounds better in isolation but rejects `previous_text`/`next_text`, and this
+pipeline synthesises one chunk per paragraph — so under v3 every chunk starts cold and a
+cloned voice audibly drifts in timbre across an episode. Continuity beats per-chunk polish
+once you are chunking.
 
 ## Things this repo knows that cost someone a day
 

@@ -37,7 +37,9 @@
     "stability": 0.5,
     "similarity": 0.75
   },
-  "_tts": "provider: elevenlabs | local. eleven_v3 sounds better in isolation but rejects previous_text/next_text, and this pipeline chunks per paragraph, so v3 restarts cold at every join and a cloned voice audibly drifts. Continuity beats per-chunk polish once you are chunking.",
+  "_ttsProviders": "elevenlabs (hosted) | local (piper or macOS say) | command (ANY local TTS with a CLI: set tts.command with {{text_file}} and {{out}} placeholders, plus outputFormat) | openai (ANY OpenAI-compatible /v1/audio/speech server: set baseUrl, model, voice). See README.",
+  "_ttsLicense": "If you use a local model commercially, check its license. Kokoro is Apache-2.0 and Piper and Chatterbox are MIT; XTTS v2 (CPML) and F5-TTS (CC-BY-NC) are non-commercial.",
+  "_tts": " eleven_v3 sounds better in isolation but rejects previous_text/next_text, and this pipeline chunks per paragraph, so v3 restarts cold at every join and a cloned voice audibly drifts. Continuity beats per-chunk polish once you are chunking.",
 
   "wpm": 200,
   "_wpm": "Spoken words per minute for the runtime estimate in --dry-run. Measured per voice; generate.mjs prints the real figure after each render so you can correct it.",

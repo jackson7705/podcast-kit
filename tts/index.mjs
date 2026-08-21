@@ -11,7 +11,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { ffmpeg, meanDb, silence, normalizeTo } from "../lib/audio.mjs";
 
-const PROVIDERS = { elevenlabs: () => import("./elevenlabs.mjs"), local: () => import("./local.mjs") };
+const PROVIDERS = {
+  elevenlabs: () => import("./elevenlabs.mjs"),
+  local: () => import("./local.mjs"),
+  command: () => import("./command.mjs"),   // any local TTS with a CLI
+  openai: () => import("./openai.mjs"),     // any OpenAI-compatible /v1/audio/speech server
+};
 
 export async function getProvider(cfg) {
   const key = process.env.TTS_PROVIDER || cfg.tts.provider;
