@@ -36,6 +36,22 @@ the `.mdx` files yourself.
 
 ---
 
+## If you would rather just ask Claude
+
+There is a skill in `.claude/skills/podcast-kit/`. Copy it once and you can start a podcast
+from any directory, without knowing any of the commands below:
+
+```bash
+cp -r .claude/skills/podcast-kit ~/.claude/skills/
+```
+
+Then, in Claude Code: **"start a podcast from mysite.com"**
+
+It bootstraps the repo if you do not have it, installs what is missing, interviews you about
+the show, picks episodes and writes them, renders, walks you through hosting, and does not let
+you submit a feed that would be rejected. It needs a real shell, so Claude Code or similar —
+not a browser chat.
+
 ## Try it first, with no keys at all
 
 ```bash
@@ -61,7 +77,8 @@ Then, in Claude Code or Codex: **"read AGENTS.md and write episodes 1 to 5 from 
 
 ```bash
 python3 gates/check.py        # must be clean
-node generate.mjs --dry-run   # validates everything, no key needed
+node setup-check.mjs          # what is missing, and the exact fix
+node generate.mjs --dry-run   # validates every script, no key needed
 node generate.mjs             # render
 python3 publish.py all        # upload, rebuild feed against real URLs, upload feed
 node preflight.mjs            # ← the point of the whole thing
