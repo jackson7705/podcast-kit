@@ -1,0 +1,19 @@
+{
+  "title": "The podkit Demo Show",
+  "description": "A single demo episode, so a fresh checkout renders something you can listen to.",
+  "author": "podkit",
+  "email": "you@example.com",
+  "link": "https://example.com/podcast/",
+  "copyright": "podkit",
+  "categories": [{ "text": "Technology", "sub": "Software How-To" }],
+  "feedUrl": "https://podcast.example.com/feed.xml",
+  "audioBaseUrl": "https://podcast.example.com",
+  "image": "https://podcast.example.com/cover-3000x3000-v1.jpg",
+  "host": { "provider": "local" },
+  "tts": { "provider": "local" },
+  "wpm": 200,
+  "episode": {
+    "targetWords": [300, 450],
+    "cta": "That's podkit. The whole thing is on GitHub, and it runs on your own machine."
+  }
+}

@@ -1,5 +1,5 @@
 .env
-show.config.json
+/show.config.json
 output/
 sources/*.txt
 sources/index.json

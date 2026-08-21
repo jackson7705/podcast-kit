@@ -36,6 +36,18 @@ the `.mdx` files yourself.
 
 ---
 
+## Try it first, with no keys at all
+
+```bash
+cp demo/show.config.json .
+cp demo/episodes/*.mdx episodes/
+node generate.mjs
+```
+
+That renders a real episode and writes `output/feed.xml`. No API key, no account, no network.
+It uses the `local` TTS provider, so it sounds like a robot — that is the point: you get to
+hear the shape of the show before deciding whether a good voice is worth paying for.
+
 ## Quick start
 
 ```bash

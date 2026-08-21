@@ -32,7 +32,8 @@
   "_host": "r2 | bunny | s3 | local. The feed URL is a one-way door, so pick a host on your own domain now rather than migrating later.",
 
   "tts": {
-    "provider": "elevenlabs",
+    "provider": "local",
+    "_upgrade": "Change provider to \"elevenlabs\" and set ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID in .env when you want it to sound like a person. Or \"command\"/\"openai\" for a local model of your own. See README.",
     "modelId": "eleven_multilingual_v2",
     "stability": 0.5,
     "similarity": 0.75
