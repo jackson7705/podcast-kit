@@ -36,22 +36,6 @@ the `.mdx` files yourself.
 
 ---
 
-## If you would rather just ask Claude
-
-There is a skill in `.claude/skills/podcast-kit/`. Copy it once and you can start a podcast
-from any directory, without knowing any of the commands below:
-
-```bash
-cp -r .claude/skills/podcast-kit ~/.claude/skills/
-```
-
-Then, in Claude Code: **"start a podcast from mysite.com"**
-
-It bootstraps the repo if you do not have it, installs what is missing, interviews you about
-the show, picks episodes and writes them, renders, walks you through hosting, and does not let
-you submit a feed that would be rejected. It needs a real shell, so Claude Code or similar —
-not a browser chat.
-
 ## Try it first, with no keys at all
 
 ```bash
