@@ -1,6 +1,6 @@
 # Writing episodes
 
-This file is the contract for the one step podkit does not automate: turning a source
+This file is the contract for the one step podcast-kit does not automate: turning a source
 article into an episode script. Claude Code and Codex both read this file automatically.
 A human can follow it too — nothing here needs a model.
 

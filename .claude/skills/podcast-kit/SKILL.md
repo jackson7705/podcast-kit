@@ -1,9 +1,9 @@
 ---
-name: podkit
+name: podcast-kit
 description: Build a podcast from existing blog posts and get a submittable RSS feed URL. Use when the user wants to turn articles into podcast episodes, write episode scripts from source posts, render audio with TTS, or validate a podcast feed before submitting it to Apple or Spotify.
 ---
 
-# podkit
+# podcast-kit
 
 The full writing contract is in [AGENTS.md](../../../AGENTS.md) at the repo root. **Read it
 before writing any episode.** Do not restate or summarise it here; there is one copy on

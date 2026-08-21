@@ -1,4 +1,4 @@
-# podkit
+# podcast-kit
 
 Turn the posts you already have into a podcast, and end up with an RSS feed URL you can
 paste into Apple Podcasts and Spotify.
@@ -16,7 +16,7 @@ Apple and Spotify. Most of what is in here is the debugging, not the wiring.
 
 ## Why the writing step has no API key
 
-podkit does not call a language model. Anywhere.
+podcast-kit does not call a language model. Anywhere.
 
 The writing step — reading a post and turning it into a script — is done by **your own
 Claude Code or Codex session**, against the contract in [AGENTS.md](AGENTS.md), which both
@@ -79,7 +79,7 @@ validation and still breaks**, collected from feeds that actually failed:
   which is how that one usually happens.
 - `<itunes:email>` present — Spotify mails the ownership code there and there is no other way in.
 
-It works on any feed URL, including ones podkit did not build.
+It works on any feed URL, including ones podcast-kit did not build.
 
 ---
 
@@ -104,10 +104,13 @@ and any `*.github.io` host — a URL you will want to leave.
 
 ## TTS
 
-| provider | notes |
+| provider | how you pick a voice |
 |---|---|
-| `elevenlabs` | The good one. Needs `ELEVENLABS_API_KEY` and a voice ID. Clone **only a voice you have the rights to.** |
-| `local` | No key, no network, no cost, and it sounds like it. Piper if installed, else macOS `say`. Good enough to get a real feed live and hear the shape of the show. |
+| `elevenlabs` | `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`, an id from your ElevenLabs account. Clone **only a voice you have the rights to.** |
+| `local` | No key, no account, no voice id. [Piper](https://github.com/rhasspy/piper) takes `PIPER_MODEL`, a path to a `.onnx` voice file you downloaded; macOS `say` takes `SAY_VOICE`, the name of a voice already on the machine (`say -v "?"` lists them). Nothing here is a secret or tied to an account. |
+
+The local provider sounds like a local provider. It exists so you can get a real feed live and
+hear the shape of the show before deciding whether the good voice is worth paying for.
 
 Default model is `eleven_multilingual_v2`, deliberately. `eleven_v3` sounds better in
 isolation but rejects `previous_text`/`next_text`, and this pipeline synthesises one chunk

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * podkit — episodes/*.mdx  ->  TTS  ->  ffmpeg mix  ->  output/feed.xml
+ * podcast-kit — episodes/*.mdx  ->  TTS  ->  ffmpeg mix  ->  output/feed.xml
  *
  *   node generate.mjs --dry-run     validate every script, no synthesis, no key needed
  *   node generate.mjs               render every episode that has no audio yet
@@ -174,7 +174,7 @@ function buildFeed(episodes) {
     <link>${esc(showLink)}</link>
     <language>${esc(cfg.language || "en-us")}</language>
     <copyright>${esc(cfg.copyright || author)}</copyright>
-    <generator>podkit</generator>
+    <generator>podcast-kit</generator>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <pubDate>${new Date(newest).toUTCString()}</pubDate>
     <atom:link href="${esc(feedUrl)}" rel="self" type="application/rss+xml" />

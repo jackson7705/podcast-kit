@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * podkit preflight — run this against your LIVE feed URL before submitting anywhere.
+ * podcast-kit preflight — run this against your LIVE feed URL before submitting anywhere.
  *
  *   node preflight.mjs                      # uses feedUrl from show.config.json
- *   node preflight.mjs https://.../feed.xml # any feed, including ones podkit did not build
+ *   node preflight.mjs https://.../feed.xml # any feed, including ones podcast-kit did not build
  *
  * This is not an XML validator. castfeedvalidator.com already tells you whether the XML is
  * well-formed. Every check below is something that PASSES generic validation and still gets
