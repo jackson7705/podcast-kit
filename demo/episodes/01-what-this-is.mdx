@@ -1,0 +1,24 @@
+---
+episodeNumber: 1
+title: "What This Is"
+slug: "what-this-is"
+publishedAt: "2026-01-06T09:00:00Z"
+description: "A demo episode that renders on a fresh checkout, so you can hear the shape of the thing before you commit to it."
+sourceArticle: "https://github.com/podkit"
+---
+
+If you are hearing this, the pipeline works on your machine. No API key was involved. This is a local text to speech voice, which is why it sounds the way it does.
+
+<!--hook-->
+
+Here is what happened. A file of plain text with a bit of metadata at the top went through four steps. It was split at a marker into an opening and a body. Each paragraph was synthesised on its own and matched to the same loudness. The pieces were joined with a short beat between them, which is the pause you are hearing now. Then a feed was written that points at the audio.
+
+That is the entire pipeline. There is no model call anywhere in it.
+
+The part that is not automated is the writing. Something has to read one of your posts and turn it into three minutes that work out loud, and that something is your own coding assistant, working from a contract in the repository. You are already paying for it. The scripts here do not need a second bill.
+
+There is a check that runs before any of this renders. It looks for the tells of writing that was optimised rather than written. Signposting. Adverb piles. The rule of three. It is a plain list of patterns you can edit, and the point is that it can fail, so there is something to fix rather than a score to admire.
+
+Two more things worth knowing. Swap the voice provider and this same episode renders through a cloned voice that sounds like a person. And before you submit anything, there is a preflight step that fetches your live feed and checks the handful of things that pass every validator and still get a show rejected.
+
+That's podkit. The whole thing is on GitHub, and it runs on your own machine.

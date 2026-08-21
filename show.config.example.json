@@ -1,0 +1,50 @@
+{
+  "_": "cp show.config.example.json show.config.json, then edit. Keys starting with _ are notes and never reach the feed.",
+
+  "title": "The Example Show",
+  "_title": "Apple and Spotify title search is keyword-literal, so a keyword in the title is worth real discovery. A pure brand name is cleaner but has to earn its searches. Check for collisions before you commit: a show that already owns your name owns your brand search too.",
+
+  "description": "Straight answers about <your subject>, from <who you are>. Two to three minutes an episode.",
+  "author": "Your Company",
+  "email": "you@example.com",
+  "_email": "Spotify sends the ownership-verification code here. It must be an inbox a human reads.",
+
+  "link": "https://example.com/podcast/",
+  "_link": "The show's HUB page, not your homepage. Apple renders this as the show website and every directory links to it.",
+
+  "copyright": "Your Company LLC",
+  "language": "en-us",
+
+  "categories": [
+    { "text": "Business", "sub": "Marketing" },
+    { "text": "Education", "sub": "How To" }
+  ],
+  "_categories": "Apple allows up to three, and only from its own taxonomy. Verify the exact strings against Apple's current list; it changes.",
+
+  "feedUrl": "https://podcast.example.com/feed.xml",
+  "_feedUrl": "MUST equal the URL you submit. It becomes <atom:link rel=\"self\"> and Apple follows it as canonical. Stale after a host move, Podcasts Connect fails with only 'An error has occurred.'",
+
+  "audioBaseUrl": "https://podcast.example.com",
+  "image": "https://podcast.example.com/cover-3000x3000-v1.jpg",
+  "_image": "1400-3000px square, JPEG or PNG, RGB. Version the FILENAME on every change: Apple caches artwork by filename and a CDN will keep serving the old object even after you overwrite the key.",
+
+  "host": { "provider": "r2" },
+  "_host": "r2 | bunny | s3 | local. The feed URL is a one-way door, so pick a host on your own domain now rather than migrating later.",
+
+  "tts": {
+    "provider": "elevenlabs",
+    "modelId": "eleven_multilingual_v2",
+    "stability": 0.5,
+    "similarity": 0.75
+  },
+  "_tts": "provider: elevenlabs | local. eleven_v3 sounds better in isolation but rejects previous_text/next_text, and this pipeline chunks per paragraph, so v3 restarts cold at every join and a cloned voice audibly drifts. Continuity beats per-chunk polish once you are chunking.",
+
+  "wpm": 200,
+  "_wpm": "Spoken words per minute for the runtime estimate in --dry-run. Measured per voice; generate.mjs prints the real figure after each render so you can correct it.",
+
+  "episode": {
+    "targetWords": [300, 450],
+    "cta": "We're <company>, <what you do> in <where>. If you want a straight answer on <thing>, we're at example.com."
+  },
+  "_episode": "Read by the writing step, not by any script. See AGENTS.md."
+}

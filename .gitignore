@@ -1,0 +1,11 @@
+.env
+show.config.json
+output/
+sources/*.txt
+sources/index.json
+assets/*.mp3
+assets/cover-*
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,33 @@
+{
+  "_": "Deterministic tells. Edit freely — this file is the show's taste, not a standard. Regexes are case-insensitive.",
+  "slop": [
+    ["SIGNPOSTING",     "(^|\\n)\\s*(here'?s (what|the|how|why)|let'?s (dive|talk|look)|in this (episode|section))"],
+    ["FAKE-CANDID",     "\\b(honestly[,?]|look,|here'?s the thing|real talk|to be honest)"],
+    ["NARRATOR-OPENER", "(^|\\n)\\s*(so,|what makes .{2,30} is|people (tend to|ask|assume|think))"],
+    ["AUTHORITY-TROPE", "(the real question is|at its core|what really matters|the truth is)"],
+    ["ADVERB-PILE",     "\\b(really|just|literally|genuinely|honestly|simply|actually|truly|incredibly)\\b"],
+    ["LAZY-EXTREME",    "\\b(everyone|everybody|always|never|nobody|no one)\\b"],
+    ["NEG-PARALLEL",    "not (just )?[^.]{2,30}[.,] (it'?s|its|because)"],
+    ["NOT-ONLY-BUT",    "not only .{2,30} but "],
+    ["DOESNT-JUST-X",   "doesn'?t just .{2,40}(but|it) "],
+    ["COPULA-AVOID",    "\\b(serves as|stands as|represents a|boasts)\\b"],
+    ["RULE-OF-THREE",   "\\b\\w+, \\w+,? and \\w+\\.(\\s|$)"],
+    ["FILLER",          "(in order to|due to the fact|at this point in time|has the ability to|it is important to note)"],
+    ["GENERIC-CLOSE",   "(future looks bright|exciting times|only time will tell)"],
+    ["APHORISM",        "(is the \\w+ of \\w+|the currency of|the architecture of)"],
+    ["TREND-OPENER",    "^(in (today|an era|a world)|the world of|understanding|as .{0,30} evolves)"]
+  ],
+  "taboo": [
+    "seamless", "pivotal role", "world of \\w+ is evolving", "push the boundaries",
+    "understanding the fundamentals", "capture attention and drive results",
+    "take (your|it) .{0,20}to the next level", "\\bdelve\\b", "\\bleverage\\b",
+    "\\brobust\\b", "\\belevate\\b", "\\bunlock\\b", "in today's fast-paced",
+    "\\btapestry\\b", "\\btestament\\b"
+  ],
+  "guarantee": ["\\b(guarantee|will increase|proven to|always works)\\b"],
+  "tts": {
+    "_": "Things that survive a page but break a spoken read.",
+    "em-dash": "—",
+    "digits-in-prose": "(?<![\\w$])\\d{3,}(?![\\w])"
+  }
+}
