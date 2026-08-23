@@ -3,10 +3,11 @@
 Turn the posts you already have into a podcast, and end up with an RSS feed URL you can
 paste into Apple Podcasts and Spotify.
 
-Node 18+ and `ffmpeg`. No npm install. One API key, and only if you want a good voice.
+Node 18+ and `ffmpeg`. No npm install. Real shows default to NotebookLM Audio Overviews;
+the keyless local provider remains available for the demo.
 
 ```
-your blog  →  ingest  →  your AI writes the scripts  →  TTS  →  ffmpeg  →  feed.xml  →  a URL
+your blog  →  ingest  →  episode manifests  →  NotebookLM podcast  →  ffmpeg  →  feed.xml  →  a URL
 ```
 
 Three shows and thirty-odd episodes have shipped through this pipeline and are live on
@@ -14,25 +15,21 @@ Apple and Spotify. Most of what is in here is the debugging, not the wiring.
 
 ---
 
-## Why the writing step has no API key
+## Why NotebookLM is the default
 
-podcast-kit does not call a language model. Anywhere.
+Text-to-speech can only perform the words it receives. A better voice can make an article
+sound nicer, but it cannot turn that article into a conversation. The `notebooklm` provider
+sends the source material to NotebookLM as a whole and downloads its Audio Overview: hosts
+explaining, reacting, and asking each other the questions a listener would ask.
 
-The writing step — reading a post and turning it into a script — is done by **your own
-Claude Code or Codex session**, against the contract in [AGENTS.md](AGENTS.md), which both
-read automatically. You are already paying for that subscription. Adding a second metered
-API key to do the same work is a tax on nothing.
+Claude Code or Codex still chooses the source and writes the episode metadata against the
+contract in [AGENTS.md](AGENTS.md). NotebookLM writes and performs the conversation from the
+matching local source captured by `ingest.mjs`. Literal providers remain available only when
+an exact approved script is required.
 
-What makes this work rather than just shifting the problem is [`gates/check.py`](gates/check.py):
-a deterministic pass over the scripts that the agent has to get to zero before anything
-renders. A failing test, not a vibe check. A weaker model just loops more.
-
-```
-write → gate fails → fix → gate passes → render
-```
-
-The audio half is fully scriptable and needs no agent at all, so you can also just write
-the `.mdx` files yourself.
+This uses the unofficial [`notebooklm-py`](https://github.com/jackson7705/notebooklm-py)
+client requested for this repository. It automates the signed-in NotebookLM product; it is
+not an official Google API and can change when NotebookLM changes.
 
 ---
 
@@ -54,17 +51,23 @@ hear the shape of the show before deciding whether a good voice is worth paying 
 cp show.config.example.json show.config.json   # read the notes in it, they matter
 cp .env.example .env
 
+uv tool install "notebooklm-py[browser] @ git+https://github.com/jackson7705/notebooklm-py.git"
+notebooklm login
+
 node ingest.mjs --from https://yoursite.com/feed --limit 20
+
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
-Then, in Claude Code or Codex: **"read AGENTS.md and write episodes 1 to 5 from sources/"**
+Then, in Claude Code or Codex: **"read AGENTS.md and create episode manifests 1 to 5 from sources/"**
 
 ```bash
-python3 gates/check.py        # must be clean
+notebooklm auth check --test --passive
 node setup-check.mjs          # what is missing, and the exact fix
-node generate.mjs --dry-run   # validates every script, no key needed
-node generate.mjs             # render
-python3 publish.py all        # upload, rebuild feed against real URLs, upload feed
+node generate.mjs --dry-run   # validates metadata without generation/quota use
+node generate.mjs             # create Audio Overviews, download, and mix
+.venv/bin/python publish.py all  # upload, rebuild feed against real URLs, upload feed
 node preflight.mjs            # ← the point of the whole thing
 ```
 
@@ -113,19 +116,57 @@ Not recommended for a real show: the `r2.dev` development URL, which Cloudflare
 [rate-limits and marks as non-production](https://developers.cloudflare.com/r2/buckets/public-buckets/),
 and any `*.github.io` host — a URL you will want to leave.
 
+## Optional weekly automation
+
+`automation/weekly.mjs` is the opt-in unattended mode used by the Air Sense deployment.
+It checks the source RSS feed once a week, publishes at most one new suitable article, and
+uses the live podcast feed plus an R2 watermark to prevent duplicates. Its first run only
+records the current source URLs, so enabling it never releases the historical backlog.
+
+The default automation path writes a bodyless episode manifest, stores the exact RSS article
+text as the local grounding source, and asks NotebookLM for a two-host Audio Overview. It no
+longer sends a literal script to ElevenLabs. After upload, live preflight runs; a failure
+restores the previous `feed.xml` automatically.
+
+Railway runs the service at both UTC offsets that can equal Monday at nine in
+`America/Chicago`; an in-process timezone guard handles daylight saving time and ignores
+the other invocation. See `Dockerfile.automation` and
+`.claude/plans/weekly-railway-publisher.md` for the deployment contract.
+
 ---
 
-## TTS
+## Audio providers
 
-Four providers. Two are specific, two are generic — and the generic pair is how you use a
-local model without anyone writing an adapter for it.
+NotebookLM is the inherited provider for real shows and all new client configurations. The
+others are explicit literal-TTS fallbacks.
 
 | provider | for |
 |---|---|
-| `elevenlabs` | The hosted one. `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`. Clone **only a voice you have the rights to.** |
+| **`notebooklm`** | **Default conversational podcast.** Creates a grounded Audio Overview from the matching ingested source. |
 | `local` | Zero setup. [Piper](https://github.com/rhasspy/piper) via `PIPER_MODEL`, else macOS `say` via `SAY_VOICE` (`say -v "?"` lists them). |
 | `command` | **Any local model with a CLI.** |
 | `openai` | **Any OpenAI-compatible `/v1/audio/speech` server**, which is what most local TTS servers expose. |
+| `elevenlabs` | Legacy literal hosted TTS for an explicitly approved script. |
+
+### NotebookLM Audio Overviews
+
+```json
+"tts": {
+  "provider": "notebooklm",
+  "format": "deep-dive",
+  "length": "default",
+  "language": "en",
+  "timeout": 1200,
+  "retry": 2,
+  "instructions": "Make this a lively conversation. Stay grounded in the source."
+}
+```
+
+For each episode, podcast-kit matches `sourceArticle` to `sources/index.json`, uploads that
+local text, generates the conversation, and downloads the exact returned artifact ID. Local
+use reads the session created by `notebooklm login`; CI and Railway use the same storage-state
+JSON through the secret `NOTEBOOKLM_AUTH_JSON`. Treat it as a bearer credential and never
+commit or print it.
 
 There is no "voice id" for a local model. Piper takes a path to a `.onnx` file you
 downloaded; `say` takes the name of a voice on the machine; Kokoro takes a voice name baked
@@ -180,18 +221,13 @@ not on quality. As widely reported (verify on the model card yourself, licenses 
 Not TTS at all, despite showing up in "local speech models" lists: **Whisper** and **NVIDIA
 Parakeet** are speech-*to*-text.
 
-### Why the ElevenLabs default is `eleven_multilingual_v2`
-
-`eleven_v3` sounds better in isolation but rejects `previous_text`/`next_text`, and this
-pipeline synthesises one chunk per paragraph — so under v3 every chunk starts cold and a
-cloned voice audibly drifts in timbre across an episode. Continuity beats per-chunk polish
-once you are chunking.
-
 ## Things this repo knows that cost someone a day
 
-- **A long single generation drifts.** One measured body decayed 18 dB start to finish. So
-  synthesis is per paragraph, each chunk level-matched, joined with a 0.45s beat, with
-  prosody context across the seams so you cannot hear the joins.
+- **NotebookLM artifacts need exact IDs.** Downloading "latest" from a reused notebook can
+  select the wrong episode after eventual-consistency delays. The task ID is carried into
+  the download command.
+- **Literal TTS drifts on long calls.** Those providers still synthesize per paragraph,
+  level-match the chunks, and join them with a short beat.
 - **Two voice clones do not render at the same loudness.** Two measured on identical
   settings came out 6.5 dB apart, and the quieter one sat underneath its own theme music.
   So the mix measures the voice and lifts it to a target instead of trusting a fixed gain.
@@ -217,7 +253,7 @@ voice.md               optional: your show's register, read by the writing step
 ingest.mjs   ingest/   posts → sources/*.txt      (rss · sitemap · wordpress · local)
              episodes/ *.mdx                       ← written by your agent
 gates/       check.py  the failing test
-generate.mjs tts/      TTS → mix → output/feed.xml (elevenlabs · local)
+generate.mjs tts/      NotebookLM/TTS → mix → output/feed.xml
 publish.py   hosts/    upload + rebuild feed       (r2 · bunny · s3 · local)
 preflight.mjs          validate the live feed, print the URL
 ```

@@ -12,6 +12,7 @@ import path from "node:path";
 import { ffmpeg, meanDb, silence, normalizeTo } from "../lib/audio.mjs";
 
 const PROVIDERS = {
+  notebooklm: () => import("./notebooklm.mjs"), // whole conversational episode from sources
   elevenlabs: () => import("./elevenlabs.mjs"),
   local: () => import("./local.mjs"),
   command: () => import("./command.mjs"),   // any local TTS with a CLI
@@ -27,6 +28,9 @@ export async function getProvider(cfg) {
 
 export async function speak({ script, outPath, cfg, pronounce }) {
   const provider = await getProvider(cfg);
+  if (!provider.speakOne) {
+    throw new Error(`Provider "${provider.name}" generates a whole episode and cannot synthesize an individual script chunk.`);
+  }
   const paras = script.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
   const dir = path.dirname(outPath);
   const base = path.basename(outPath, ".mp3");

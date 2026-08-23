@@ -1,30 +1,29 @@
-# Writing episodes
+# Creating episodes
 
-This file is the contract for the one step podcast-kit does not automate: turning a source
-article into an episode script. Claude Code and Codex both read this file automatically.
-A human can follow it too — nothing here needs a model.
+This file is the contract for turning source articles into episode manifests or literal
+scripts. Claude Code and Codex both read it automatically. Read `show.config.json` first,
+because `tts.provider` selects one of two materially different jobs.
 
-**You are the writing step.** Everything else in this repo is deterministic: `ingest.mjs`
-fetches, `generate.mjs` synthesises and mixes, `publish.py` uploads, `preflight.mjs`
-validates. No script in this repo calls a model, and you should not call one either. You
-read source text, you write `.mdx` files, and the scripts take it from there.
+- With `tts.provider: "notebooklm"` (the real-show default), you choose the source and write
+  an episode manifest: frontmatter plus optional `audioInstructions`. NotebookLM generates
+  and performs the conversation from the matching ingested source. Do not write a spoken
+  body that nobody will use.
+- With any other provider, you are the writing step. Read source text and write the complete
+  spoken script in the MDX body. The provider reads it literally.
 
 ---
 
 ## The loop
 
-```
-sources/NN.txt        ← ingest.mjs wrote these
-      ↓ you
-episodes/NN-slug.mdx
-      ↓
-python3 gates/check.py   ← must exit 0
-      ↓
-node generate.mjs
+```text
+sources/NN.txt  →  you choose + write metadata  →  episodes/NN-slug.mdx
+                                                      ↓
+                        notebooklm provider: conversational Audio Overview
+                        literal provider: gate → script TTS
 ```
 
-**`gates/check.py` is a failing test, and you iterate against it until it passes.** Do not
-render anything it flags. If you think a flag is wrong for this show, edit
+For literal providers, **`gates/check.py` is a failing test, and you iterate against it until
+it passes.** Do not render anything it flags. If you think a flag is wrong for this show, edit
 `gates/patterns.json` and say so — do not work around it by rephrasing until the regex
 stops matching. Relexicalising to beat a check is the failure mode this loop exists to
 prevent.
@@ -34,8 +33,8 @@ prevent.
 ## The file format
 
 One episode is one `.mdx` file in `episodes/`. Frontmatter is machine-read and drives the
-RSS feed. The body is the spoken script and nothing else — no headings, no lists, no
-markdown formatting, no stage directions. Every character of the body will be read aloud.
+RSS feed. Under NotebookLM, the body is empty. Under literal providers, the body is the
+spoken script and nothing else: no headings, lists, markdown formatting, or stage directions.
 
 ```mdx
 ---
@@ -46,13 +45,12 @@ publishedAt: "2026-08-21T01:01:00Z"
 description: "Most video RFPs are missing the one thing that would get you comparable quotes."
 sourceArticle: "https://example.com/how-to-write-a-video-rfp/"
 topicUrl: "https://example.com/podcast/the-rfp/"
+audioInstructions: "Focus on why comparable bids require a shared production brief."
 ---
 
-<the hook: the cold open, 2-4 sentences>
+<NotebookLM: leave empty>
 
-<!--hook-->
-
-<the body: everything else, ending on the CTA from show.config.json>
+<literal provider: the hook, then <!--hook-->, then the body>
 ```
 
 | field | rule |
@@ -63,11 +61,12 @@ topicUrl: "https://example.com/podcast/the-rfp/"
 | `description` | One or two sentences. Shown in every podcast app. |
 | `sourceArticle` | The post this episode is drawn from. **This is a grounding contract, not a citation** — see below. |
 | `topicUrl` | Optional. When set, the feed item links here instead of the show root. |
+| `audioInstructions` | Optional NotebookLM direction for this episode. One line, about angle or audience, not invented facts. |
 | `duration` | **Do not write this.** `generate.mjs` measures the render and writes it back. |
 
 ---
 
-## Three things about the body that are load-bearing
+## Literal providers: three things about the body that are load-bearing
 
 **1. `<!--hook-->` splits the cold open from the body.** They are synthesised separately so
 the intro music can overlap and duck under the host's first line. The hook has to work as
@@ -91,8 +90,10 @@ machine reading a document, which is what they are.
 
 ## Grounding
 
-**Every fact in an episode traces to its `sourceArticle`.** Not "is consistent with" —
-traces. If the article does not contain it, it does not go in the script.
+**Every fact in an episode traces to its `sourceArticle`.** Not "is consistent with": it
+traces. If the article does not contain it, it does not go in a script or NotebookLM prompt.
+The NotebookLM adapter prefers the matching local file from `sources/index.json`, falling
+back to the URL only when the local mapping is unavailable.
 
 This matters more in audio than on a page. A page can hedge; a spoken sentence commits. And
 you cannot quietly correct a podcast episode after directories have cached it.
@@ -107,8 +108,8 @@ you cannot quietly correct a podcast episode after directories have cached it.
 
 ## Format
 
-Read `show.config.json` before writing — `episode.targetWords`, `episode.cta`, and the
-show's `description` set the brief. Then:
+For literal providers, `episode.targetWords`, `episode.cta`, and the show's `description`
+set the writing brief. Then:
 
 **Answer-first.** Open on the question and answer it inside the first fifteen seconds. Then
 why it is true, then what to do about it. Never open with context, a trend, or a preamble.
@@ -120,12 +121,17 @@ A listener decides in eight seconds.
 `cta` string from config verbatim unless told otherwise. Name who you are, where you
 operate, one reason to go, then the destination. No urgency, no offer nobody cleared.
 
+For NotebookLM, express the one question in `description` and any extra angle in
+`audioInstructions`. The adapter passes the configured CTA as an exact closing-line request.
+Do not try to pre-script host dialogue in either field.
+
 ---
 
 ## Voice
 
-If the repo has a `voice.md`, read it and follow it — that is the show's own register and
-it beats anything here.
+If the repo has a `voice.md`, read it and follow it. For NotebookLM, turn only the most
+important register guidance into concise `tts.instructions` or `audioInstructions`; for a
+literal provider it governs the whole script.
 
 Absent that, the thing to avoid is the register of anonymous internet advice. Two symptoms
 worth watching, both of which the gate measures:
@@ -150,4 +156,4 @@ You will usually have more sources than episodes. Pick on:
 3. **Does it commit you to something you cannot say in audio?** Pricing is the usual one.
    A page can frame a number; a spoken rate gets quoted back to you.
 
-Write the list before writing scripts, and say which source each episode maps to.
+Write the list before creating manifests or scripts, and say which source each episode maps to.

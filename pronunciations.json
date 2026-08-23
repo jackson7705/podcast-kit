@@ -2,5 +2,6 @@
   "_": "Spoken-form fixes applied to the TTS input only; the script keeps the correct text. Two things reliably need entries: bare domains, which TTS fuses into one word, and acronyms you want letter-spelled. Keep it short.",
   "example.com": "example dot com",
   "RFP": "R F P",
-  "SF": "San Francisco"
+  "SF": "San Francisco",
+  "airsenseenvironmental.com": "air sense environmental dot com"
 }

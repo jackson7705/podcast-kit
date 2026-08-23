@@ -31,8 +31,8 @@ done < .redactions
 fail=0
 for p in "${PATTERNS[@]}"; do
   hits=$(grep -rInE "$p" . \
-    --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=output \
-    --exclude=check-secrets.sh --exclude=.redactions --exclude=.env.example 2>/dev/null || true)
+    --exclude-dir=.git --exclude-dir=.venv --exclude-dir=node_modules --exclude-dir=output \
+    --exclude=check-secrets.sh --exclude=.redactions --exclude=.env --exclude=.env.example 2>/dev/null || true)
   if [ -n "$hits" ]; then
     echo "BLOCKED  /$p/"
     echo "$hits" | sed 's/^/    /'

@@ -13,6 +13,7 @@ Backend comes from host.provider in show.config.json (r2, bunny, s3, local).
 """
 import importlib
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -34,6 +35,9 @@ def env():
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 e[k.strip()] = v.strip().strip('"').strip("'")
+    # Deployment environments provide secrets as process variables. Keep local .env
+    # support for interactive use, but let the process environment win when both exist.
+    e.update(os.environ)
     return e
 
 
@@ -54,13 +58,15 @@ def upload(mod, e, key, path):
     return url
 
 
-def do_assets(mod, e, cfg):
+def do_assets(mod, e, cfg, slug=None):
     hosted_path = OUT / "hosted.json"
     hosted = json.loads(hosted_path.read_text()) if hosted_path.exists() else {}
     for d in sorted(OUT.iterdir()):
         mp3 = d / "episode.mp3"
-        if d.is_dir() and mp3.exists():
+        if d.is_dir() and mp3.exists() and (not slug or d.name == slug):
             hosted[d.name] = upload(mod, e, f"{d.name}/episode.mp3", mp3)
+    if slug and slug not in hosted:
+        sys.exit(f'No rendered episode found for --slug "{slug}"')
     # 🔴 Artwork filename is versioned deliberately. Apple caches art by filename, and a CDN
     # in front of the bucket keeps serving the old object even after you overwrite the key.
     # Bump the -vN when the image changes; do not rely on a purge.
@@ -88,9 +94,15 @@ def do_feed(mod, e, cfg):
 
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "all"
+    slug = None
+    if "--slug" in sys.argv:
+        i = sys.argv.index("--slug")
+        if i + 1 >= len(sys.argv):
+            sys.exit("--slug requires a value")
+        slug = sys.argv[i + 1]
     mod, e, cfg = backend()
     if cmd in ("assets", "all"):
-        do_assets(mod, e, cfg)
+        do_assets(mod, e, cfg, slug)
     if cmd == "all":
         subprocess.run(["node", str(HERE / "generate.mjs"), "--feed-only"], check=True)
     if cmd in ("feed", "all"):

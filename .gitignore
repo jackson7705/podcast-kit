@@ -6,7 +6,10 @@ sources/index.json
 assets/*.mp3
 assets/cover-*
 node_modules/
+.venv/
+worker/wrangler.jsonc
 __pycache__/
 *.pyc
 .DS_Store
 .redactions
+automation/.runtime-*

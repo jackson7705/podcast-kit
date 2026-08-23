@@ -1,0 +1,32 @@
+{
+  "title": "St. Louis Radon Answers by Air Sense Environmental",
+  "description": "Straight answers about radon testing, radon mitigation, and indoor air quality from Air Sense Environmental, serving the greater St. Louis metro in Missouri and Illinois.",
+  "author": "Air Sense Environmental",
+  "email": "jason@airsenseenvironmental.com",
+  "itunesEmail": "jason@growthproagency.com",
+  "link": "https://airsenseenvironmental.com/podcast/",
+  "copyright": "Air Sense Environmental",
+  "categories": [
+    { "text": "Education", "sub": "How To" },
+    { "text": "Leisure", "sub": "Home & Garden" }
+  ],
+  "feedUrl": "https://airsenseenvironmental.com/podcast/feed.xml",
+  "audioBaseUrl": "https://airsenseenvironmental.com/podcast",
+  "image": "https://airsenseenvironmental.com/podcast/cover-st-louis-radon-answers-v1.png",
+  "host": { "provider": "r2" },
+  "tts": {
+    "provider": "notebooklm",
+    "format": "deep-dive",
+    "length": "short",
+    "language": "en",
+    "timeout": 1200,
+    "interval": 2,
+    "retry": 2,
+    "instructions": "Create a natural two-host podcast for St. Louis-area homeowners, not an audiobook. Answer the article's central question immediately, then let the hosts clarify and build on each other's points. Stay grounded in the supplied Air Sense Environmental source and do not invent claims."
+  },
+  "wpm": 200,
+  "episode": {
+    "targetWords": [300, 450],
+    "cta": "We're Air Sense Environmental, St. Louis radon testing and mitigation specialists serving both sides of the river. If you want a straight answer about the air in your home, visit airsenseenvironmental.com."
+  }
+}

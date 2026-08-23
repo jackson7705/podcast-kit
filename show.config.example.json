@@ -7,7 +7,9 @@
   "description": "Straight answers about <your subject>, from <who you are>. Two to three minutes an episode.",
   "author": "Your Company",
   "email": "you@example.com",
-  "_email": "Spotify sends the ownership-verification code here. It must be an inbox a human reads.",
+  "_email": "General show contact and managing editor address.",
+  "itunesEmail": "podcasts@example.com",
+  "_itunesEmail": "Spotify and other directories send RSS ownership-verification codes here. Defaults to email when omitted.",
 
   "link": "https://example.com/podcast/",
   "_link": "The show's HUB page, not your homepage. Apple renders this as the show website and every directory links to it.",
@@ -32,15 +34,18 @@
   "_host": "r2 | bunny | s3 | local. The feed URL is a one-way door, so pick a host on your own domain now rather than migrating later.",
 
   "tts": {
-    "provider": "local",
-    "_upgrade": "Change provider to \"elevenlabs\" and set ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID in .env when you want it to sound like a person. Or \"command\"/\"openai\" for a local model of your own. See README.",
-    "modelId": "eleven_multilingual_v2",
-    "stability": 0.5,
-    "similarity": 0.75
+    "provider": "notebooklm",
+    "format": "deep-dive",
+    "length": "default",
+    "language": "en",
+    "timeout": 1200,
+    "interval": 2,
+    "retry": 2,
+    "instructions": "Make this a lively, useful conversation for our audience. Stay grounded in the supplied source and do not read it word for word."
   },
-  "_ttsProviders": "elevenlabs (hosted) | local (piper or macOS say) | command (ANY local TTS with a CLI: set tts.command with {{text_file}} and {{out}} placeholders, plus outputFormat) | openai (ANY OpenAI-compatible /v1/audio/speech server: set baseUrl, model, voice). See README.",
+  "_ttsProviders": "notebooklm (default conversational podcast) | local (keyless demo or literal Piper/macOS say) | command (literal TTS via any CLI) | openai (literal TTS via an OpenAI-compatible server) | elevenlabs (legacy literal TTS). See README.",
+  "_notebooklm": "Install the requested fork with: uv tool install \"notebooklm-py[browser] @ git+https://github.com/jackson7705/notebooklm-py.git\". Then run notebooklm login once. In CI/Railway, set NOTEBOOKLM_AUTH_JSON as a secret.",
   "_ttsLicense": "If you use a local model commercially, check its license. Kokoro is Apache-2.0 and Piper and Chatterbox are MIT; XTTS v2 (CPML) and F5-TTS (CC-BY-NC) are non-commercial.",
-  "_tts": " eleven_v3 sounds better in isolation but rejects previous_text/next_text, and this pipeline chunks per paragraph, so v3 restarts cold at every join and a cloned voice audibly drifts. Continuity beats per-chunk polish once you are chunking.",
 
   "wpm": 200,
   "_wpm": "Spoken words per minute for the runtime estimate in --dry-run. Measured per voice; generate.mjs prints the real figure after each render so you can correct it.",
@@ -49,5 +54,5 @@
     "targetWords": [300, 450],
     "cta": "We're <company>, <what you do> in <where>. If you want a straight answer on <thing>, we're at example.com."
   },
-  "_episode": "Read by the writing step, not by any script. See AGENTS.md."
+  "_episode": "Used by the writing step and as NotebookLM generation guidance. See AGENTS.md."
 }
