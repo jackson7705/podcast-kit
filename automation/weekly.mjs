@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Weekly Air Sense publisher.
+ * Daily Air Sense publisher.
  *
  * The default path writes a grounded episode manifest and lets NotebookLM generate the
  * conversation from the exact RSS article text. Literal providers retain the older bounded
@@ -102,7 +102,7 @@ export function parsePodcastFeed(xml) {
   }).filter((item) => item.slug && item.enclosure);
 }
 
-export function isMondayNineCentral(date = new Date(), timeZone = "America/Chicago") {
+export function isDailyNineCentral(date = new Date(), timeZone = "America/Chicago") {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
     timeZone,
     weekday: "short",
@@ -110,7 +110,7 @@ export function isMondayNineCentral(date = new Date(), timeZone = "America/Chica
     minute: "2-digit",
     hourCycle: "h23",
   }).formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
-  return parts.weekday === "Mon" && parts.hour === "09";
+  return Number(parts.hour) >= 9;
 }
 
 export function suitability(item) {
@@ -448,8 +448,8 @@ async function main() {
   const podcastFeedUrl = process.env.PODCAST_FEED_URL || cfg.feedUrl;
   const timeZone = process.env.AUTOMATION_TIME_ZONE || "America/Chicago";
 
-  if (!FORCE_SCHEDULE && !isMondayNineCentral(new Date(), timeZone)) {
-    console.log(`No-op: it is not Monday at 9 AM in ${timeZone}.`);
+  if (!FORCE_SCHEDULE && !isDailyNineCentral(new Date(), timeZone)) {
+    console.log(`No-op: it is before 9 AM in ${timeZone}.`);
     return;
   }
 

@@ -4,7 +4,7 @@ import {
   canonicalUrl,
   chooseCandidate,
   descriptionFromArticle,
-  isMondayNineCentral,
+  isDailyNineCentral,
   notebookEpisodeMdx,
   parseBlogFeed,
   parsePodcastFeed,
@@ -45,9 +45,14 @@ test("podcast RSS parsing recovers the published source and audio slug", () => {
 });
 
 test("Central-time guard handles daylight saving time", () => {
-  assert.equal(isMondayNineCentral(new Date("2026-06-08T14:00:00Z")), true);
-  assert.equal(isMondayNineCentral(new Date("2026-12-07T15:00:00Z")), true);
-  assert.equal(isMondayNineCentral(new Date("2026-12-07T14:00:00Z")), false);
+  assert.equal(isDailyNineCentral(new Date("2026-06-08T14:00:00Z")), true);
+  assert.equal(isDailyNineCentral(new Date("2026-12-07T15:00:00Z")), true);
+  assert.equal(isDailyNineCentral(new Date("2026-12-07T14:00:00Z")), false);
+});
+
+test("daily guard includes weekends and catches up after nine", () => {
+  assert.equal(isDailyNineCentral(new Date("2026-09-12T14:00:00Z")), true);
+  assert.equal(isDailyNineCentral(new Date("2026-09-13T20:00:00Z")), true);
 });
 
 test("selection ignores seen URLs, skips thin and pricing posts, and chooses only one", () => {

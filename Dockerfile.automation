@@ -1,10 +1,13 @@
 FROM node:22-bookworm-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates ffmpeg python3 python3-pip \
+    && apt-get install -y --no-install-recommends ca-certificates curl unzip ffmpeg python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+RUN curl -fsSL https://composio.dev/install -o /tmp/composio-install.sh \
+    && COMPOSIO_INSTALL_SHELL=none COMPOSIO_BIN_DIR=/usr/local/bin sh /tmp/composio-install.sh @composio/cli@0.4.1 \
+    && rm /tmp/composio-install.sh
 COPY . .
 ARG NOTEBOOKLM_COMMIT=3bb0c1850ac4e85378a831581a0cf1e82fa80272
 RUN cp automation/show.config.json show.config.json \
@@ -13,4 +16,4 @@ RUN cp automation/show.config.json show.config.json \
       "notebooklm-py @ https://github.com/jackson7705/notebooklm-py/archive/${NOTEBOOKLM_COMMIT}.zip" \
     && notebooklm --version
 
-CMD ["node", "automation/weekly.mjs"]
+CMD ["python3", "automation/maintain.py"]

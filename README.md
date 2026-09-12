@@ -116,10 +116,10 @@ Not recommended for a real show: the `r2.dev` development URL, which Cloudflare
 [rate-limits and marks as non-production](https://developers.cloudflare.com/r2/buckets/public-buckets/),
 and any `*.github.io` host — a URL you will want to leave.
 
-## Optional weekly automation
+## Optional daily automation
 
 `automation/weekly.mjs` is the opt-in unattended mode used by the Air Sense deployment.
-It checks the source RSS feed once a week, publishes at most one new suitable article, and
+It checks the source RSS feed daily, publishes at most one new suitable article, and
 uses the live podcast feed plus an R2 watermark to prevent duplicates. Its first run only
 records the current source URLs, so enabling it never releases the historical backlog.
 
@@ -128,10 +128,30 @@ text as the local grounding source, and asks NotebookLM for a two-host Audio Ove
 longer sends a literal script to ElevenLabs. After upload, live preflight runs; a failure
 restores the previous `feed.xml` automatically.
 
-Railway runs the service at both UTC offsets that can equal Monday at nine in
-`America/Chicago`; an in-process timezone guard handles daylight saving time and ignores
-the other invocation. See `Dockerfile.automation` and
-`.claude/plans/weekly-railway-publisher.md` for the deployment contract.
+Railway runs `python3 automation/maintain.py` every twenty minutes (`*/20 * * * *`).
+It refreshes and verifies NotebookLM authentication on every invocation. A private
+volume at `/data` preserves the rotating cookie file and `podcast/health.json`.
+`NOTEBOOKLM_AUTH_JSON` is a bootstrap secret: a changed value replaces the saved
+login once, then child processes use the persisted file via `NOTEBOOKLM_HOME`.
+Never upload this cookie file to the public podcast bucket.
+
+Publication runs daily at nine in `America/Chicago`, with catch-up on the next
+maintenance invocation if that time is missed. Articles posted after the daily check
+are picked up the following day. A private daily ledger
+and the existing R2 run history prevent repeat publication across maintenance runs.
+A publication attempt is reserved before starting; after a failed/uncertain publication,
+unresolved attempts block later days too. Inspect the live feed and reconcile the
+private ledger before manually rerunning `node automation/weekly.mjs --force-schedule`.
+Authentication failures before publication can recover on the next maintenance run.
+Failed checks exit nonzero and retain a sanitized failure stage in `health.json`.
+With `AUTOMATION_EMAIL_ALERTS=1`, the Composio CLI sends sanitized failure alerts
+from the connected Air Sense Gmail account to `jason.jackson@locafy.com`, at most
+once per failure stage per UTC day. `COMPOSIO_USER_DATA_JSON` supplies its private
+CLI credentials from Railway secrets. An ambiguous email send is never retried
+automatically. `last-publication.log` stays on the private volume for diagnosis.
+These alerts require the container to start; they cannot detect a Railway outage.
+Google can revoke sessions; if refresh fails, run `notebooklm login`, replace
+the Railway bootstrap secret securely, and verify the next maintenance invocation.
 
 ---
 
