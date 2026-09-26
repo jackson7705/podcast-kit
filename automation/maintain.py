@@ -96,6 +96,14 @@ def prepare_auth(directory, env):
             write_json(storage, value)
             revisions['revision'] = revision
             write_json(revision_file, revisions)
+    if master.exists() and storage.exists():
+        # Cookies left over from a different account (e.g. the retired cookie
+        # secret) can never be refreshed by this token — drop them so the CLI
+        # mints a clean session instead of failing on the stale jar.
+        token_email = (read_json(master).get('email') or '').lower()
+        cookie_email = (read_json(storage).get('notebooklm', {}).get('account', {}).get('email') or '').lower()
+        if token_email and cookie_email and token_email != cookie_email:
+            storage.unlink()
     if not storage.exists() and not master.exists():
         raise ValueError('Missing bootstrap')
     # With only master_token.json on disk, the `notebooklm auth refresh --verify`

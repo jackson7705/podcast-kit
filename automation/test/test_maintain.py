@@ -58,6 +58,13 @@ class MaintenanceTests(unittest.TestCase):
         env = m.prepare_auth(self.directory, {**token_env, 'NOTEBOOKLM_AUTH_JSON': json.dumps({'cookies': [{'value': 'snap'}]})})
         self.assertFalse((profile / 'storage_state.json').exists())
         self.assertNotIn('NOTEBOOKLM_AUTH_JSON', env)
+        # cookies that belong to another account are dropped; same-account cookies stay
+        m.write_json(profile / 'storage_state.json', {'cookies': [{'value': 'x'}], 'notebooklm': {'account': {'email': 'other@locafy.com'}}})
+        m.prepare_auth(self.directory, dict(token_env))
+        self.assertFalse((profile / 'storage_state.json').exists())
+        m.write_json(profile / 'storage_state.json', {'cookies': [{'value': 'x'}], 'notebooklm': {'account': {'email': 'A@B'}}})
+        m.prepare_auth(self.directory, dict(token_env))
+        self.assertTrue((profile / 'storage_state.json').exists())
         with self.assertRaises(ValueError):
             m.prepare_auth(self.directory, {'NOTEBOOKLM_MASTER_TOKEN_JSON': '"not a dict"'})
 
