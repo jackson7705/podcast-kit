@@ -54,9 +54,10 @@ class MaintenanceTests(unittest.TestCase):
         # a re-issued token drops cookies minted from the old one
         m.prepare_auth(self.directory, {'NOTEBOOKLM_MASTER_TOKEN_JSON': json.dumps({'master_token': 'aas_et/two'})})
         self.assertFalse((profile / 'storage_state.json').exists())
-        # both secrets together: cookie snapshot is still imported as a head start
-        m.prepare_auth(self.directory, {**token_env, 'NOTEBOOKLM_AUTH_JSON': json.dumps({'cookies': [{'value': 'snap'}]})})
-        self.assertTrue((profile / 'storage_state.json').exists())
+        # both secrets together: the token wins, a stale cookie snapshot is ignored
+        env = m.prepare_auth(self.directory, {**token_env, 'NOTEBOOKLM_AUTH_JSON': json.dumps({'cookies': [{'value': 'snap'}]})})
+        self.assertFalse((profile / 'storage_state.json').exists())
+        self.assertNotIn('NOTEBOOKLM_AUTH_JSON', env)
         with self.assertRaises(ValueError):
             m.prepare_auth(self.directory, {'NOTEBOOKLM_MASTER_TOKEN_JSON': '"not a dict"'})
 

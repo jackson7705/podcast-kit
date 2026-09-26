@@ -54,8 +54,7 @@ def prepare_auth(directory, env):
     * ``NOTEBOOKLM_AUTH_JSON`` — a cookie snapshot (``storage_state.json``). Legacy:
       it is superseded by any other client of the same Google session within
       minutes and dies outright every one to two weeks, which is what kept taking
-      this automation down. Still honoured as a bootstrap; with a master token on
-      disk it is merely a head start.
+      this automation down. Honoured only when no master token is present.
 
     Each secret is imported once per revision so cookie rotations the CLI writes
     on later runs are not clobbered by re-importing a stale snapshot.
@@ -82,6 +81,12 @@ def prepare_auth(directory, env):
             if storage.exists():
                 storage.unlink()
             write_json(revision_file, revisions)
+    if bootstrap and master.exists():
+        # The token is authoritative. Importing a cookie snapshot next to it
+        # re-installs cookies for whatever account the snapshot came from — the
+        # first master-token run (2026-09-26 20:40 UTC) failed exactly that way
+        # when a deployment's env still carried the retired locafy cookies.
+        bootstrap = None
     if bootstrap:
         revision = hashlib.sha256(bootstrap.encode()).hexdigest()
         if not storage.exists() or revisions.get('revision') != revision:
