@@ -42,22 +42,59 @@ def publication_due(now, health):
 
 
 def prepare_auth(directory, env):
-    """Import changed bootstrap once; preserve cookie rotations on later starts."""
-    storage = directory / 'notebooklm/profiles/default/storage_state.json'
+    """Seed the NotebookLM profile from secrets; preserve cookie rotations on later starts.
+
+    Two credentials are accepted, either or both:
+
+    * ``NOTEBOOKLM_MASTER_TOKEN_JSON`` — the durable Google master token written by
+      ``notebooklm login --master-token``. It does not rotate or expire, and the CLI
+      re-mints web cookies from it in-process whenever the session dies (layer-4
+      recovery), so a profile that holds it never needs a human re-login. This is
+      the credential to ship for a scheduled job like this one.
+    * ``NOTEBOOKLM_AUTH_JSON`` — a cookie snapshot (``storage_state.json``). Legacy:
+      it is superseded by any other client of the same Google session within
+      minutes and dies outright every one to two weeks, which is what kept taking
+      this automation down. Still honoured as a bootstrap; with a master token on
+      disk it is merely a head start.
+
+    Each secret is imported once per revision so cookie rotations the CLI writes
+    on later runs are not clobbered by re-importing a stale snapshot.
+    """
+    profile = directory / 'notebooklm/profiles/default'
+    storage = profile / 'storage_state.json'
+    master = profile / 'master_token.json'
     revision_file = directory / 'bootstrap.json'
     bootstrap = env.pop('NOTEBOOKLM_AUTH_JSON', None)
+    master_token = env.pop('NOTEBOOKLM_MASTER_TOKEN_JSON', None)
     env['NOTEBOOKLM_HOME'] = str(directory / 'notebooklm')
     env['NOTEBOOKLM_PROFILE'] = 'default'
+    revisions = read_json(revision_file)
+    if master_token:
+        revision = hashlib.sha256(master_token.encode()).hexdigest()
+        if not master.exists() or revisions.get('masterRevision') != revision:
+            value = json.loads(master_token)
+            if not isinstance(value, dict) or not value:
+                raise ValueError('Invalid master token')
+            write_json(master, value)
+            revisions['masterRevision'] = revision
+            # A new master token means a new account or a re-issued credential:
+            # drop cookies minted from the old one so the CLI re-mints cleanly.
+            if storage.exists():
+                storage.unlink()
+            write_json(revision_file, revisions)
     if bootstrap:
         revision = hashlib.sha256(bootstrap.encode()).hexdigest()
-        if not storage.exists() or read_json(revision_file).get('revision') != revision:
+        if not storage.exists() or revisions.get('revision') != revision:
             value = json.loads(bootstrap)
             if not isinstance(value, dict) or not value.get('cookies'):
                 raise ValueError('Invalid bootstrap')
             write_json(storage, value)
-            write_json(revision_file, {'revision': revision})
-    if not storage.exists():
+            revisions['revision'] = revision
+            write_json(revision_file, revisions)
+    if not storage.exists() and not master.exists():
         raise ValueError('Missing bootstrap')
+    # With only master_token.json on disk, the `notebooklm auth refresh --verify`
+    # step that follows mints the first storage_state.json from it.
     return env
 
 

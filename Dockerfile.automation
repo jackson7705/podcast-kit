@@ -13,7 +13,7 @@ ARG NOTEBOOKLM_COMMIT=3bb0c1850ac4e85378a831581a0cf1e82fa80272
 RUN cp automation/show.config.json show.config.json \
     && python3 -m pip install --no-cache-dir --break-system-packages \
       -r requirements.txt \
-      "notebooklm-py @ https://github.com/jackson7705/notebooklm-py/archive/${NOTEBOOKLM_COMMIT}.zip" \
+      "notebooklm-py[headless] @ https://github.com/jackson7705/notebooklm-py/archive/${NOTEBOOKLM_COMMIT}.zip" \
     && notebooklm --version
 
 CMD ["python3", "automation/maintain.py"]

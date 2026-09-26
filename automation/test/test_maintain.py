@@ -39,6 +39,27 @@ class MaintenanceTests(unittest.TestCase):
         self.assertEqual(m.read_json(storage)['cookies'][0]['value'], 'new')
         self.assertEqual(storage.stat().st_mode & 0o777, 0o600)
 
+    def test_master_token_alone_is_enough_and_replaces_stale_cookies(self):
+        profile = self.directory / 'notebooklm/profiles/default'
+        token_env = {'NOTEBOOKLM_MASTER_TOKEN_JSON': json.dumps({'master_token': 'aas_et/one', 'email': 'a@b'})}
+        env = m.prepare_auth(self.directory, dict(token_env))
+        self.assertNotIn('NOTEBOOKLM_MASTER_TOKEN_JSON', env)
+        self.assertEqual(m.read_json(profile / 'master_token.json')['master_token'], 'aas_et/one')
+        self.assertEqual((profile / 'master_token.json').stat().st_mode & 0o777, 0o600)
+        self.assertFalse((profile / 'storage_state.json').exists())  # minted by `auth refresh`
+        # cookies the CLI mints later survive an unchanged token on the next start
+        m.write_json(profile / 'storage_state.json', {'cookies': [{'value': 'minted'}]})
+        m.prepare_auth(self.directory, dict(token_env))
+        self.assertEqual(m.read_json(profile / 'storage_state.json')['cookies'][0]['value'], 'minted')
+        # a re-issued token drops cookies minted from the old one
+        m.prepare_auth(self.directory, {'NOTEBOOKLM_MASTER_TOKEN_JSON': json.dumps({'master_token': 'aas_et/two'})})
+        self.assertFalse((profile / 'storage_state.json').exists())
+        # both secrets together: cookie snapshot is still imported as a head start
+        m.prepare_auth(self.directory, {**token_env, 'NOTEBOOKLM_AUTH_JSON': json.dumps({'cookies': [{'value': 'snap'}]})})
+        self.assertTrue((profile / 'storage_state.json').exists())
+        with self.assertRaises(ValueError):
+            m.prepare_auth(self.directory, {'NOTEBOOKLM_MASTER_TOKEN_JSON': '"not a dict"'})
+
     def test_three_monday_invocations_only_publish_once(self):
         for minute in [0, 20, 40]:
             self.assertEqual(m.maintain(self.directory, self.monday.replace(minute=minute), self.env, self.run_ok), 0)
