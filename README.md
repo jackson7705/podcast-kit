@@ -146,6 +146,12 @@ unresolved attempts block later days too. Inspect the live feed and reconcile th
 private ledger before manually rerunning `node automation/weekly.mjs --force-schedule`.
 Authentication failures before publication can recover on the next maintenance run.
 Failed checks exit nonzero and retain a sanitized failure stage in `health.json`.
+
+After each day's publication step, a watchdog checks outcomes rather than errors: it
+emails (once per stage per day) `stale-feed` when no episode has published for
+`PUBLISH_INTERVAL_DAYS` or more, and `backlog-low` when fewer than
+`BACKLOG_ALERT_THRESHOLD` (default ten) suitable articles remain. A running job that has
+stopped publishing is treated as an outage.
 With `AUTOMATION_EMAIL_ALERTS=1`, the Composio CLI sends sanitized failure alerts
 from the connected Air Sense Gmail account to `jason.jackson@locafy.com`, at most
 once per failure stage per UTC day. `COMPOSIO_USER_DATA_JSON` supplies its private

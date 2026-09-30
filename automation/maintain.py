@@ -111,6 +111,70 @@ def prepare_auth(directory, env):
     return env
 
 
+def alert_once(directory, health, stage, now, env, detail=None):
+    """Email one alert per stage per day. Reserve before sending; never auto-retry uncertain sends."""
+    if env.get('AUTOMATION_EMAIL_ALERTS') != '1':
+        return
+    health_path = directory / 'health.json'
+    alert_key = f'{now.date()}:{stage}'
+    attempts = health.setdefault('alertAttempts', {})
+    if alert_key in attempts:
+        return
+    attempts[alert_key] = 'started'
+    health['alertAttempts'] = dict(sorted(attempts.items())[-50:])
+    write_json(health_path, health)
+    try:
+        from alert import send_alert
+        if detail:
+            send_alert(stage, now.isoformat(), detail=detail)
+        else:
+            send_alert(stage, now.isoformat())
+        health['lastAlertStatus'] = 'sent'
+    except Exception:
+        health['lastAlertStatus'] = 'failed-or-uncertain'
+    health['alertAttempts'][alert_key] = health['lastAlertStatus']
+    write_json(health_path, health)
+
+
+def watchdog_findings(runs, now, env):
+    """Outcome checks: a healthy job that stops publishing is still an outage."""
+    interval = int(env.get('PUBLISH_INTERVAL_DAYS') or 2)
+    threshold = int(env.get('BACKLOG_ALERT_THRESHOLD') or 10)
+    findings = {}
+    published = sorted(r['at'] for r in runs if r.get('result') == 'published' and r.get('at'))
+    if published:
+        last = datetime.fromisoformat(published[-1].replace('Z', '+00:00'))
+        days = (datetime.fromisoformat(day_key(now)) - datetime.fromisoformat(day_key(last))).days
+        if days >= interval:
+            findings['stale-feed'] = (f'No Air Sense podcast episode has published for {days} days '
+                                      f'(expected one every {interval}). The job is running but not publishing: '
+                                      'check the last run result in R2 history and the Railway logs.')
+    else:
+        findings['stale-feed'] = 'No published Air Sense podcast episode appears in the automation history.'
+    backlogs = [r['backlog'] for r in runs if isinstance(r.get('backlog'), int)]
+    if backlogs and backlogs[-1] < threshold:
+        findings['backlog-low'] = (f'Only {backlogs[-1]} suitable blog articles are left for the Air Sense podcast '
+                                   f'(about {backlogs[-1] * interval} days of episodes). Publish more blog posts '
+                                   'or the show will go quiet.')
+    return findings
+
+
+def run_watchdog(directory, health, now, env, child_env, run):
+    if health.get('watchdogDay') == day_key(now):
+        return
+    try:
+        history = run(['python3', 'automation/r2_state.py', 'get'], child_env, 60)
+        if history.returncode:
+            raise RuntimeError('history unavailable')
+        findings = watchdog_findings(json.loads(history.stdout).get('runs', []), now, env)
+    except Exception:
+        findings = {'watchdog': 'The Air Sense podcast watchdog could not read publication history from R2.'}
+    health['watchdogDay'] = day_key(now)
+    health['watchdog'] = sorted(findings)
+    for stage, detail in findings.items():
+        alert_once(directory, health, stage, now, env, detail)
+
+
 def execute(args, env, timeout):
     # Do not print captured subprocess output: auth diagnostics can contain secrets.
     with subprocess.Popen(args, cwd=ROOT, env=env, stdout=subprocess.PIPE,
@@ -174,6 +238,9 @@ def maintain(directory, now, env, run=execute):
         if unresolved_publication(health):
             stage = 'publication'
             raise RuntimeError('Previous publication requires inspection')
+        if health.get('dailyAttempts', {}).get(day_key(now)) in ('completed', 'already-completed'):
+            stage = 'watchdog'
+            run_watchdog(directory, health, now, env, child_env, run)
         health['status'] = 'ok'
         health.pop('failureStage', None)
         write_json(health_path, health)
@@ -187,23 +254,7 @@ def maintain(directory, now, env, run=execute):
         health['failures'] = (health.get('failures', []) + [
             {'at': now.isoformat(), 'stage': stage}])[-50:]
         write_json(health_path, health)
-        if env.get('AUTOMATION_EMAIL_ALERTS') == '1':
-            # Reserve before sending, including ambiguous timeouts. Never auto-retry
-            # an uncertain email write. One alert per stage/day limits repeated noise.
-            alert_key = f'{now.date()}:{stage}'
-            attempts = health.setdefault('alertAttempts', {})
-            if alert_key not in attempts:
-                attempts[alert_key] = 'started'
-                health['alertAttempts'] = dict(sorted(attempts.items())[-50:])
-                write_json(health_path, health)
-                try:
-                    from alert import send_alert
-                    send_alert(stage, now.isoformat())
-                    health['lastAlertStatus'] = 'sent'
-                except Exception:
-                    health['lastAlertStatus'] = 'failed-or-uncertain'
-                health['alertAttempts'][alert_key] = health['lastAlertStatus']
-                write_json(health_path, health)
+        alert_once(directory, health, stage, now, env)
         print(json.dumps({'status': 'failed', 'stage': stage,
                           'action': 'Refresh NotebookLM login if authentication failed; inspect publication before retrying.'}), flush=True)
         return 1

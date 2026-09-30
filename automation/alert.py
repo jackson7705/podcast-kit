@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 
 
-def send_alert(stage, at, test=False):
+def send_alert(stage, at, test=False, detail=None):
     bootstrap = os.environ.get('COMPOSIO_USER_DATA_JSON')
     if bootstrap:
         destination = Path.home() / '.composio/user_data.json'
@@ -17,8 +17,9 @@ def send_alert(stage, at, test=False):
         'from_email': 'jason@airsenseenvironmental.com',
         'subject': 'Air Sense podcast: alert delivery test' if test else f'Air Sense podcast needs attention: {stage}',
         'body': ('This is a test of the Air Sense podcast failure alert. No episode failure is being reported.'
-                 if test else f'The Air Sense podcast automation failed during {stage} at {at}. '
-                 'If authentication failed, sign into NotebookLM again and replace the Railway NOTEBOOKLM_AUTH_JSON secret. '
+                 if test else f'{detail} Checked at {at}.' if detail else
+                 f'The Air Sense podcast automation failed during {stage} at {at}. '
+                 'If authentication failed, sign into NotebookLM again and replace the Railway NOTEBOOKLM_MASTER_TOKEN_JSON secret. '
                  'For publication failures, inspect the live feed before rerunning to avoid duplicates.')
                  + '\n\nRailway: https://railway.com/project/aae4d4d5-8044-46ae-b42a-80d2e62ca2f0'
                  + '\nFeed: https://airsenseenvironmental.com/podcast/feed.xml',

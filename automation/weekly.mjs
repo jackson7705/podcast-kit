@@ -533,17 +533,20 @@ async function main() {
     return;
   }
 
+  const publishedRuns = (state.runs || []).filter((run) => run.result === "published" && run.url).map((run) => run.url);
+  const selection = chooseCandidate(blogItems, [...publishedUrls, ...publishedRuns]);
+  // Suitable articles still waiting; maintain.py alerts before this runs dry.
+  const backlog = selection.pending.length - selection.skipped.length;
+
   if (!IGNORE_CADENCE && !publicationDue(state, new Date(), intervalDays, timeZone)) {
     console.log(`Not due: last episode ${lastPublishedAt(state)}; publishing every ${intervalDays} days.`);
     if (!DRY_RUN) {
-      recordRun(state, { result: "not-due", lastPublishedAt: lastPublishedAt(state) });
+      recordRun(state, { result: "not-due", lastPublishedAt: lastPublishedAt(state), backlog });
       saveState(state);
     }
     return;
   }
 
-  const publishedRuns = (state.runs || []).filter((run) => run.result === "published" && run.url).map((run) => run.url);
-  const selection = chooseCandidate(blogItems, [...publishedUrls, ...publishedRuns]);
   state.seen = state.seen || [];
   state.skipped = state.skipped || [];
   for (const skipped of selection.skipped) {
@@ -557,13 +560,13 @@ async function main() {
   if (!selection.candidate) {
     console.log("No suitable new article detected.");
     if (!DRY_RUN) {
-      recordRun(state, { result: "no-new-article", checked: blogItems.length });
+      recordRun(state, { result: "no-new-article", checked: blogItems.length, backlog });
       saveState(state);
     }
     return;
   }
 
-  console.log(`Candidate: ${selection.candidate.title} (${selection.candidate.words} words; ${selection.pending.length - selection.skipped.length} suitable in backlog)`);
+  console.log(`Candidate: ${selection.candidate.title} (${selection.candidate.words} words; ${backlog} suitable in backlog)`);
   if (DRY_RUN) {
     console.log("Dry run: detection succeeded; no model, TTS, upload, or state write was performed.");
     return;
@@ -589,7 +592,7 @@ async function main() {
   const publishedUrl = canonicalUrl(selection.candidate.url);
   if (!state.seen.map(canonicalUrl).includes(publishedUrl)) state.seen.push(publishedUrl);
   state.lastPublishedAt = new Date().toISOString();
-  recordRun(state, { result: "published", url: publishedUrl, slug: created.slug, episodeNumber: nextNumber });
+  recordRun(state, { result: "published", url: publishedUrl, slug: created.slug, episodeNumber: nextNumber, backlog: backlog - 1 });
   saveState(state);
   console.log(`Published episode ${nextNumber}: ${created.draft.title}`);
 }

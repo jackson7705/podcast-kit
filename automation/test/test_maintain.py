@@ -162,5 +162,35 @@ class MaintenanceTests(unittest.TestCase):
         self.assertFalse(m.publication_due(self.monday, health))
 
 
+    def test_watchdog_flags_stale_feed_and_low_backlog(self):
+        now = datetime.fromisoformat('2026-09-30T15:00:00+00:00')
+        runs = [{'at': '2026-09-22T14:05:00Z', 'result': 'published', 'backlog': 40},
+                {'at': '2026-09-29T14:00:00Z', 'result': 'no-new-article', 'backlog': 3}]
+        findings = m.watchdog_findings(runs, now, {})
+        self.assertIn('8 days', findings['stale-feed'])
+        self.assertIn('Only 3', findings['backlog-low'])
+        healthy = [{'at': '2026-09-30T14:05:00Z', 'result': 'published', 'backlog': 60},
+                   {'at': '2026-09-29T14:00:00Z', 'result': 'not-due', 'backlog': 61}]
+        self.assertEqual(m.watchdog_findings(healthy, now, {}), {})
+        # a not-due day after yesterday's episode is not stale
+        self.assertEqual(m.watchdog_findings(healthy[:1], datetime.fromisoformat('2026-10-01T15:00:00+00:00'), {}), {})
+
+    def test_watchdog_alerts_once_per_day_after_publication(self):
+        import types
+        alert = Mock(return_value=True)
+        env = {**self.env, 'AUTOMATION_EMAIL_ALERTS': '1'}
+        def stale(args, env, timeout):
+            result = self.run_ok(args, env, timeout)
+            if 'r2_state.py' in ' '.join(args):
+                result.stdout = json.dumps({'runs': [{'at': '2026-09-01T14:00:00Z', 'result': 'published', 'backlog': 50}]})
+            return result
+        with patch.dict('sys.modules', {'alert': types.SimpleNamespace(send_alert=alert)}):
+            for minute in [0, 20, 40]:
+                self.assertEqual(m.maintain(self.directory, self.monday.replace(minute=minute), env, stale), 0)
+        self.assertEqual(alert.call_count, 1)
+        self.assertEqual(alert.call_args.args[0], 'stale-feed')
+        self.assertEqual(m.read_json(self.directory / 'health.json')['watchdog'], ['stale-feed'])
+
+
 if __name__ == '__main__':
     unittest.main()
