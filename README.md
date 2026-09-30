@@ -116,12 +116,15 @@ Not recommended for a real show: the `r2.dev` development URL, which Cloudflare
 [rate-limits and marks as non-production](https://developers.cloudflare.com/r2/buckets/public-buckets/),
 and any `*.github.io` host — a URL you will want to leave.
 
-## Optional daily automation
+## Optional scheduled automation
 
 `automation/weekly.mjs` is the opt-in unattended mode used by the Air Sense deployment.
-It checks the source RSS feed daily, publishes at most one new suitable article, and
-uses the live podcast feed plus an R2 watermark to prevent duplicates. Its first run only
-records the current source URLs, so enabling it never releases the historical backlog.
+It checks daily and publishes one episode every `PUBLISH_INTERVAL_DAYS` (default two)
+Central calendar days. Candidates come from the whole WordPress archive
+(`/wp-json/wp/v2/posts`, falling back to the RSS feed), newest unpublished article first,
+so a fresh post takes the next slot and the backlog drains between posts. The live
+podcast feed plus R2 run history prevent duplicates. Days that are not due record a
+`not-due` run. `--ignore-cadence` publishes immediately (manual catch-up).
 
 The default automation path writes a bodyless episode manifest, stores the exact RSS article
 text as the local grounding source, and asks NotebookLM for a two-host Audio Overview. It no
@@ -135,9 +138,8 @@ volume at `/data` preserves the rotating cookie file and `podcast/health.json`.
 login once, then child processes use the persisted file via `NOTEBOOKLM_HOME`.
 Never upload this cookie file to the public podcast bucket.
 
-Publication runs daily at nine in `America/Chicago`, with catch-up on the next
-maintenance invocation if that time is missed. Articles posted after the daily check
-are picked up the following day. A private daily ledger
+The publication check runs daily at nine in `America/Chicago`, with catch-up on the next
+maintenance invocation if that time is missed. A private daily ledger
 and the existing R2 run history prevent repeat publication across maintenance runs.
 A publication attempt is reserved before starting; after a failed/uncertain publication,
 unresolved attempts block later days too. Inspect the live feed and reconcile the

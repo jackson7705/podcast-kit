@@ -8,6 +8,8 @@ import {
   notebookEpisodeMdx,
   parseBlogFeed,
   parsePodcastFeed,
+  parseWordPressPosts,
+  publicationDue,
   slugFromArticle,
   suitability,
   validateDraft,
@@ -55,19 +57,39 @@ test("daily guard includes weekends and catches up after nine", () => {
   assert.equal(isDailyNineCentral(new Date("2026-09-13T20:00:00Z")), true);
 });
 
-test("selection ignores seen URLs, skips thin and pricing posts, and chooses only one", () => {
+test("selection ignores published URLs, skips thin and pricing posts, and chooses the newest", () => {
   const items = [
-    { title: "Seen", url: "https://example.com/seen", words: 1000, publishedAt: "2026-08-23T00:00:00Z" },
+    { title: "Published", url: "https://example.com/published", words: 1000, publishedAt: "2026-08-28T00:00:00Z" },
     { title: "Short", url: "https://example.com/short", words: 200, publishedAt: "2026-08-24T00:00:00Z" },
     { title: "Radon Pricing", url: "https://example.com/radon-pricing", words: 1200, publishedAt: "2026-08-25T00:00:00Z" },
-    { title: "First Suitable", url: "https://example.com/first", words: 900, publishedAt: "2026-08-26T00:00:00Z" },
-    { title: "Second Suitable", url: "https://example.com/second", words: 900, publishedAt: "2026-08-27T00:00:00Z" },
+    { title: "Older Suitable", url: "https://example.com/first", words: 900, publishedAt: "2026-08-26T00:00:00Z" },
+    { title: "Newest Suitable", url: "https://example.com/second", words: 900, publishedAt: "2026-08-27T00:00:00Z" },
   ];
-  const result = chooseCandidate(items, ["https://example.com/seen/"], []);
+  const result = chooseCandidate(items, ["https://example.com/published/"]);
   assert.equal(result.skipped.length, 2);
-  assert.equal(result.candidate.title, "First Suitable");
+  assert.equal(result.candidate.title, "Newest Suitable");
   assert.match(suitability(items[1]), /too short/);
   assert.match(suitability(items[2]), /pricing/);
+});
+
+test("WordPress REST posts become articles with full text", () => {
+  const [item] = parseWordPressPosts([{
+    id: 7, link: "https://example.com/old-post/", date_gmt: "2025-01-04T15:00:00",
+    title: { rendered: "Old &amp; Useful" }, content: { rendered: "<p>Radon enters through foundation cracks.</p>" },
+  }]);
+  assert.equal(item.title, "Old & Useful");
+  assert.equal(item.url, "https://example.com/old-post");
+  assert.equal(item.publishedAt, "2025-01-04T15:00:00.000Z");
+  assert.equal(item.words, 5);
+});
+
+test("cadence publishes every other Central calendar day", () => {
+  const state = { runs: [{ result: "published", at: "2026-09-22T14:05:00Z" }, { result: "no-new-article", at: "2026-09-23T14:00:00Z" }] };
+  assert.equal(publicationDue(state, new Date("2026-09-23T20:00:00Z")), false);
+  assert.equal(publicationDue(state, new Date("2026-09-24T14:00:00Z")), true);
+  // 11 PM Central on the 22nd is still the 22nd locally.
+  assert.equal(publicationDue({ lastPublishedAt: "2026-09-23T04:00:00Z" }, new Date("2026-09-24T14:00:00Z")), true);
+  assert.equal(publicationDue({}, new Date()), true);
 });
 
 test("draft validation requires exact source evidence", () => {

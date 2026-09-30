@@ -153,7 +153,7 @@ def maintain(directory, now, env, run=execute):
             if history.returncode:
                 raise RuntimeError('Cannot verify publication history')
             runs = json.loads(history.stdout).get('runs', [])
-            completed = any(r.get('result') in ('published', 'no-new-article')
+            completed = any(r.get('result') in ('published', 'no-new-article', 'not-due')
                             and day_key(datetime.fromisoformat(r['at'].replace('Z', '+00:00'))) == day_key(now)
                             for r in runs)
             attempts = health.setdefault('dailyAttempts', {})

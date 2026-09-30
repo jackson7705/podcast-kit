@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Daily Air Sense publisher.
+ * Air Sense publisher: checked daily, publishes one episode every PUBLISH_INTERVAL_DAYS
+ * (default two) from the whole WordPress archive, newest unpublished article first.
  *
  * The default path writes a grounded episode manifest and lets NotebookLM generate the
  * conversation from the exact RSS article text. Literal providers retain the older bounded
@@ -26,6 +27,7 @@ const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const FORCE_SCHEDULE = args.includes("--force-schedule");
 const CHECK_RUNTIME = args.includes("--check-runtime");
+const IGNORE_CADENCE = args.includes("--ignore-cadence");
 
 loadEnv(path.join(ROOT, ".env"));
 
@@ -82,6 +84,23 @@ export function parseBlogFeed(xml) {
   }).filter((item) => item.url && item.text);
 }
 
+// The WordPress RSS feed only lists the ten newest posts; the REST API exposes the
+// whole archive, which is what lets the backlog keep the every-other-day cadence.
+export function parseWordPressPosts(posts) {
+  return (Array.isArray(posts) ? posts : []).map((post) => {
+    const text = toText(post.content?.rendered || "");
+    const date = post.date_gmt || post.date;
+    return {
+      title: toText(post.title?.rendered || ""),
+      url: canonicalUrl(post.link),
+      guid: String(post.id || ""),
+      publishedAt: new Date(date ? `${date.replace(/Z$/, "")}Z` : 0).toISOString(),
+      text,
+      words: (text.match(/[A-Za-z']+/g) || []).length,
+    };
+  }).filter((item) => item.url && item.text);
+}
+
 export function parsePodcastFeed(xml) {
   return (String(xml).match(/<item[\s>][\s\S]*?<\/item>/gi) || []).map((item) => {
     const enclosure = attr(item, "enclosure", "url");
@@ -121,12 +140,31 @@ export function suitability(item) {
   return null;
 }
 
-export function chooseCandidate(items, seen, published) {
-  const seenSet = new Set([...seen, ...published].map(canonicalUrl));
-  const pending = items.filter((item) => !seenSet.has(canonicalUrl(item.url)))
-    .sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
+// Newest first: a fresh blog post takes the next slot, then the archive drains backwards.
+export function chooseCandidate(items, published) {
+  const publishedSet = new Set(published.map(canonicalUrl));
+  const pending = items.filter((item) => !publishedSet.has(canonicalUrl(item.url)))
+    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
   const skipped = pending.filter((item) => suitability(item)).map((item) => ({ item, reason: suitability(item) }));
   return { pending, skipped, candidate: pending.find((item) => !suitability(item)) || null };
+}
+
+function localDate(date, timeZone) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
+export function lastPublishedAt(state) {
+  const times = (state.runs || []).filter((run) => run.result === "published").map((run) => run.at);
+  if (state.lastPublishedAt) times.push(state.lastPublishedAt);
+  return times.sort((a, b) => new Date(a) - new Date(b)).at(-1) || null;
+}
+
+// Due when at least `intervalDays` local calendar days separate today from the last episode.
+export function publicationDue(state, now = new Date(), intervalDays = 2, timeZone = "America/Chicago") {
+  const last = lastPublishedAt(state);
+  if (!last) return true;
+  const days = (Date.parse(localDate(now, timeZone)) - Date.parse(localDate(new Date(last), timeZone))) / 86_400_000;
+  return days >= intervalDays;
 }
 
 function normalizeEvidence(value) {
@@ -226,6 +264,28 @@ function saveState(state) {
   fs.writeFileSync(RUNTIME_STATE, JSON.stringify(state, null, 2));
   try { run(pythonBinary(), [STATE_HELPER, "put", RUNTIME_STATE], { print: false }); }
   finally { fs.rmSync(RUNTIME_STATE, { force: true }); }
+}
+
+async function fetchArchive(apiUrl) {
+  const posts = [];
+  for (let page = 1; page <= 20; page++) {
+    const url = `${apiUrl}${apiUrl.includes("?") ? "&" : "?"}per_page=100&page=${page}&_fields=id,link,title,content,date,date_gmt`;
+    const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(60_000) });
+    if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
+    posts.push(...await response.json());
+    if (page >= Number(response.headers.get("x-wp-totalpages") || 1)) break;
+  }
+  return parseWordPressPosts(posts);
+}
+
+async function loadArticles(blogFeedUrl, postsApiUrl) {
+  try {
+    const items = await fetchArchive(postsApiUrl);
+    if (items.length) return items;
+  } catch (error) {
+    console.error(`Archive fetch failed; falling back to RSS: ${error.message}`);
+  }
+  return parseBlogFeed(await fetchText(blogFeedUrl));
 }
 
 async function fetchText(url) {
@@ -447,14 +507,15 @@ async function main() {
   const blogFeedUrl = process.env.BLOG_FEED_URL || "https://airsenseenvironmental.com/feed";
   const podcastFeedUrl = process.env.PODCAST_FEED_URL || cfg.feedUrl;
   const timeZone = process.env.AUTOMATION_TIME_ZONE || "America/Chicago";
+  const postsApiUrl = process.env.BLOG_POSTS_API_URL || `${new URL(blogFeedUrl).origin}/wp-json/wp/v2/posts`;
+  const intervalDays = Number(process.env.PUBLISH_INTERVAL_DAYS || 2);
 
   if (!FORCE_SCHEDULE && !isDailyNineCentral(new Date(), timeZone)) {
     console.log(`No-op: it is before 9 AM in ${timeZone}.`);
     return;
   }
 
-  const [blogXml, podcastXml] = await Promise.all([fetchText(blogFeedUrl), fetchText(podcastFeedUrl)]);
-  const blogItems = parseBlogFeed(blogXml);
+  const [blogItems, podcastXml] = await Promise.all([loadArticles(blogFeedUrl, postsApiUrl), fetchText(podcastFeedUrl)]);
   const podcastItems = parsePodcastFeed(podcastXml);
   if (!blogItems.length) throw new Error(`No articles found in ${blogFeedUrl}`);
   if (!podcastItems.length) throw new Error(`No existing episodes found in ${podcastFeedUrl}`);
@@ -472,10 +533,22 @@ async function main() {
     return;
   }
 
-  const selection = chooseCandidate(blogItems, state.seen || [], publishedUrls);
+  if (!IGNORE_CADENCE && !publicationDue(state, new Date(), intervalDays, timeZone)) {
+    console.log(`Not due: last episode ${lastPublishedAt(state)}; publishing every ${intervalDays} days.`);
+    if (!DRY_RUN) {
+      recordRun(state, { result: "not-due", lastPublishedAt: lastPublishedAt(state) });
+      saveState(state);
+    }
+    return;
+  }
+
+  const publishedRuns = (state.runs || []).filter((run) => run.result === "published" && run.url).map((run) => run.url);
+  const selection = chooseCandidate(blogItems, [...publishedUrls, ...publishedRuns]);
+  state.seen = state.seen || [];
+  state.skipped = state.skipped || [];
   for (const skipped of selection.skipped) {
     const url = canonicalUrl(skipped.item.url);
-    if (!(state.seen || []).map(canonicalUrl).includes(url)) state.seen.push(url);
+    if (state.skipped.some((entry) => canonicalUrl(entry.url) === url)) continue;
     state.skipped.push({ url, title: skipped.item.title, reason: skipped.reason, at: new Date().toISOString() });
     console.log(`Skip: ${skipped.item.title} (${skipped.reason})`);
   }
@@ -490,7 +563,7 @@ async function main() {
     return;
   }
 
-  console.log(`Candidate: ${selection.candidate.title} (${selection.candidate.words} words)`);
+  console.log(`Candidate: ${selection.candidate.title} (${selection.candidate.words} words; ${selection.pending.length - selection.skipped.length} suitable in backlog)`);
   if (DRY_RUN) {
     console.log("Dry run: detection succeeded; no model, TTS, upload, or state write was performed.");
     return;
@@ -515,6 +588,7 @@ async function main() {
   fs.rmSync(FEED_BACKUP, { force: true });
   const publishedUrl = canonicalUrl(selection.candidate.url);
   if (!state.seen.map(canonicalUrl).includes(publishedUrl)) state.seen.push(publishedUrl);
+  state.lastPublishedAt = new Date().toISOString();
   recordRun(state, { result: "published", url: publishedUrl, slug: created.slug, episodeNumber: nextNumber });
   saveState(state);
   console.log(`Published episode ${nextNumber}: ${created.draft.title}`);
